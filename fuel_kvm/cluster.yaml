@@ -1,0 +1,27 @@
+images_path: /media/vms/fuel_kvm
+
+networks:
+    fuel_inet: fuelbr0 192.168.200.2/24 NAT
+    os_internal_private: osbr2 172.16.1.1/24
+    os_public_ext_floating: osbr1 172.16.0.1/24
+    os_local: osbr0 10.20.0.1/24
+
+fuel_vm:
+    ssh_creds: root:r00tme@10.20.0.2
+    memory: 1024M
+    cpu: 1
+    iso: /media/data/MirantisOpenStack-4.1.iso
+    networks: os_local os_public_ext_floating fuel_inet
+    disks: 30G
+
+cluster:
+    compute1:
+        memory: 2048M
+        cpu: 1
+        disks: 30G
+        networks: os_local os_public_ext_floating os_internal_private
+
+    compute2: =compute1
+    controller: =compute1
+
+
