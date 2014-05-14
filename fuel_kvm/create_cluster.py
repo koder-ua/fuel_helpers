@@ -1,12 +1,12 @@
 import os
 import sys
-import yaml
 import time
 import socket
 import argparse
 import contextlib
 import subprocess
 
+import yaml
 import libvirt 
 import paramiko
 
