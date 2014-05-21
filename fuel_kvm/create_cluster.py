@@ -215,7 +215,7 @@ def launch_vm(conn, vm, nets, images_path):
             print "Vm {!r} paused. Resuming it".format(vm.name)
             dom.resume()
             return
-        raise RuntimeError("VM {} in state {}. Don't know how to back it to life".format(vm.name))
+        raise RuntimeError("VM {} in state {}. Don't know how to back it to life".format(vm.name, state))
     
     nets_xml = ""
     for net_name in vm.networks:
