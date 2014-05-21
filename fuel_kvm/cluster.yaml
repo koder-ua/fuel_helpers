@@ -8,6 +8,7 @@ networks:
 
 fuel_vm:
     ssh_creds: root:r00tme@10.20.0.2
+    fuel_web_api_check: http://10.20.0.2:8000/api/nodes
     memory: 1024M
     cpu: 1
     iso: /media/data/MirantisOpenStack-4.1.iso

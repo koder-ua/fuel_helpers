@@ -288,7 +288,7 @@ def wait_fuel_installed(fuel_vm):
     t.connect(username=user, password=passwd)
     try:
         sftp = paramiko.SFTPClient.from_transport(t)
-
+        fuel_rest_test_url = fuel_vm.params['fuel_web_api_check']
         with action("Wait installation finished or web server starts"):
             while True:
                 try:
@@ -297,7 +297,7 @@ def wait_fuel_installed(fuel_vm):
                         break
 
                     # check if fuel web service running
-                    urllib2.urlopen("http://{}:8000/api/nodes".format(host), timeout=5).read()
+                    urllib2.urlopen(fuel_rest_test_url, timeout=5).read()
                     break
                 except (urllib2.URLError, socket.URLError, socket.timeout, IOError):
                     pass
