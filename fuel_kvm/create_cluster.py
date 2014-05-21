@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import socket
+import urllib2
 import argparse
 import contextlib
 import subprocess
@@ -125,6 +126,7 @@ def action(message):
     else:
         print "ok"
 
+
 def load_cluster_description(yaml_descr):
     data = yaml.load(yaml_descr)
     nets = {name:Network(name, *(params.split()))
@@ -200,13 +202,20 @@ def get_mac(curr_mac=[0x525400da7227]):
 def launch_vm(conn, vm, nets, images_path):
     print "Start vm", vm.name
     try:
-        conn.lookupByName(vm.name)
+        dom = conn.lookupByName(vm.name)
     except libvirt.libvirtError as x:
         if x.get_error_code() != libvirt.VIR_ERR_NO_DOMAIN:
             raise
     else:
         print "Vm {!r} already exists".format(vm.name)
-        return
+        state = dom.state()[0]
+        if state == libvirt.VIR_DOMAIN_RUNNING:
+            return
+        if state == libvirt.VIR_DOMAIN_PAUSED:
+            print "Vm {!r} paused. Resuming it".format(vm.name)
+            dom.resume()
+            return
+        raise RuntimeError("VM {} in state {}. Don't know how to back it to life".format(vm.name))
     
     nets_xml = ""
     for net_name in vm.networks:
@@ -226,7 +235,7 @@ def launch_vm(conn, vm, nets, images_path):
     if 'iso' in vm.params:
         dev_name = 'vd' + chr(ord('a') + cd_dev_pos)
         cdrom_xml = XMLTemplates.vm_cdrom.format(path=vm.params['iso'], 
-                                             dev=dev_name)
+                                                 dev=dev_name)
         boot_cdrom_xml = '<boot dev="cdrom" />'
     else:
         cdrom_xml = ""
@@ -277,19 +286,29 @@ def wait_fuel_installed(fuel_vm):
 
 
     t.connect(username=user, password=passwd)
-    sftp = paramiko.SFTPClient.from_transport(t)
+    try:
+        sftp = paramiko.SFTPClient.from_transport(t)
 
-    with action("Wait installation finished"):
-        while True:
-            try:
-                remote_file_data = sftp.open(log_file).read()
-                if 'Finished catalog run' in remote_file_data:
+        with action("Wait installation finished or web server starts"):
+            while True:
+                try:
+                    remote_file_data = sftp.open(log_file).read()
+                    if 'Finished catalog run' in remote_file_data:
+                        break
+
+                    # check if fuel web service running
+                    urllib2.urlopen("http://{}:8000/api/nodes".format(host), timeout=5).read()
                     break
-            except IOError:
-                pass
-            time.sleep(10)
+                except (urllib2.URLError, socket.URLError, socket.timeout, IOError):
+                    pass
+                time.sleep(10)
+    finally:
+        t.close()
 
-    t.close()
+
+def suppress_some_messages(ctx, error):
+    if error[0] != libvirt.VIR_ERR_NO_DOMAIN and error[0] != libvirt.VIR_ERR_NO_NETWORK:
+        print error[2]
 
 
 def main(args):
@@ -300,6 +319,8 @@ def main(args):
     parser.add_argument('cluster_description_file', type=argparse.FileType('r'),
                         help='File with cluster description')
     args = parser.parse_args()
+
+    libvirt.registerErrorHandler(suppress_some_messages, None)
 
     with action("Connecting to libvirt at {}".format(args.libvirturl)):
         conn = libvirt.open(args.libvirturl)
